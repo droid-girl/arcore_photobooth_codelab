@@ -1,0 +1,660 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Augmented Faces with ARCore in Kotlin</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/codelab-elements/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14"></google-codelab-analytics>
+  <google-codelab codelab-gaid="UA-70080194-6"
+                  id="photo-booth-codelab"
+                  title="Augmented Faces with ARCore in Kotlin"
+                  environment="web"
+                  feedback-link="https://github.com/Kristina-Simakova/photobooth_codelab_start_project/issues">
+    
+      <google-codelab-step label="Introduction" duration="0">
+        <p><strong>Last Updated:</strong> 2020-10-17</p>
+<h2 is-upgraded><strong>What you&#39;ll build</strong></h2>
+<p>In this codelab, we will learn how to use Augmented Faces API. We will use ARCore Android SDK and Kotlin without using Sceneform SDK.</p>
+<p>Your app will:</p>
+<ul>
+<li>Apply texture to a face mesh</li>
+<li>Define custom face landmarks and add 3D models</li>
+<li>Change models and textures at runtime</li>
+<li>Tint background with another color using shaders</li>
+</ul>
+<p class="image-container"><img style="width: 600.00px" src="img/ce82ce866d87f181.gif"></p>
+<p>This codelab is focused on Augmented Faces API. Non-relevant concepts and code blocks are glossed over and are provided for you to simply copy and paste.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Prerequisites" duration="1">
+        <h2 is-upgraded><strong>Hardware Requirements</strong></h2>
+<ul>
+<li>A <a href="https://developers.google.com/ar/discover/#supported_devices" target="_blank">supported ARCore device</a>, connected via a USB cable to your development machine. This device also must support the Depth API. Please see <a href="https://developers.google.com/ar/discover/supported-devices" target="_blank">this list of supported devices</a>.</li>
+<li>Enable USB debugging for this device.</li>
+</ul>
+<h2 is-upgraded><strong>Software Requirements</strong></h2>
+<ul>
+<li><a href="https://github.com/google-ar/arcore-android-sdk/releases" target="_blank">ARCore SDK 1.19.0</a> or later.</li>
+<li>A development machine with <a href="https://developer.android.com/studio/index.html" target="_blank">Android Studio</a> (v3.0 or later).</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Getting set up" duration="5">
+        <p>It is recommended to go through the first codelab &#34;Augmented Faces with ARCore Codelab&#34;.</p>
+<h2 is-upgraded><strong>Download the Starter Project</strong></h2>
+<p>You can either clone the repository: </p>
+<pre><code>git clone --branch final_codelab https://github.com/Kristina-Simakova/photobooth_codelab_start_project.git</code></pre>
+<p>Or download a ZIP file and extract it:</p>
+<p><a href="https://github.com/Kristina-Simakova/photobooth_codelab_start_project/archive/final_codelab.zip" target="_blank"><paper-button class="colored" raised><iron-icon icon="file-download"></iron-icon>Download ZIP</paper-button></a></p>
+<p>Launch Android Studio. Click <strong>Open an existing Android Studio project</strong>. </p>
+<h2 is-upgraded><strong>Running the project</strong></h2>
+<p>When you run the app for the first time, it will request CAMERA permission. Tap <strong>Allow</strong> to continue.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Project Setup" duration="3">
+        <h2 is-upgraded><strong>What&#39;s our starting point?</strong></h2>
+<p>Our starting point is a modified version of ARCore SDK sample for Augmented Faces. The code has been modified in a way that we can now easily add different textures and objects to a face object without using Sceneform SDK. </p>
+<h2 is-upgraded><strong>Project structure</strong></h2>
+<ul>
+<li><code>Helpers</code> - original Java files from sample code </li>
+<li><code>Rendering</code> - original Java files from sample code that handles rendering of AR objects and background</li>
+</ul>
+<p>Additional files for this Codelab: </p>
+<ul>
+<li><code>AugmentedFaceFragment.kt</code> - handles rendering and tracking of Augmented Faces </li>
+<li><code>AugmentedFaceListener.kt</code> - handles Add and Update Augmented Faces callbacks</li>
+<li><code>AugmentedFaceNode.kt</code> - handles the rendering of a face including a texture and associated 3D models</li>
+<li><code>AugmentedFaceRenderer.kt</code> - renders face texture</li>
+<li><code>FaceRegion.kt</code> - renders 3D model located on a defined FaceLandmark</li>
+</ul>
+<p class="image-container"><img style="width: 624.00px" src="img/157f08ef5d7708d4.png"></p>
+<h2 is-upgraded><strong>MainActivity setup</strong></h2>
+<p><code>activity_main.xml</code></p>
+<pre><code>&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;
+&lt;androidx.constraintlayout.widget.ConstraintLayout xmlns:android=&#34;http://schemas.android.com/apk/res/android&#34;
+   xmlns:tools=&#34;http://schemas.android.com/tools&#34;
+   android:layout_width=&#34;match_parent&#34;
+   android:layout_height=&#34;match_parent&#34;
+   tools:context=&#34;.MainActivity&#34;&gt;
+
+   &lt;fragment android:name=&#34;blog.creativetech.arfaces.arface.AugmentedFaceFragment&#34;
+       android:id=&#34;@+id/face_view&#34;
+       android:layout_width=&#34;match_parent&#34;
+       android:layout_height=&#34;match_parent&#34;
+       android:layout_gravity=&#34;top&#34; /&gt;
+
+&lt;/androidx.constraintlayout.widget.ConstraintLayout&gt;
+</code></pre>
+<p><code>MainActivity.kt</code></p>
+<pre><code>class MainActivity : AppCompatActivity(), AugmentedFaceListener {
+   override fun onCreate(savedInstanceState: Bundle?) {
+       super.onCreate(savedInstanceState)
+       setContentView(R.layout.activity_main)
+       (face_view as AugmentedFaceFragment).setAugmentedFaceListener(this)
+   }
+
+   override fun onFaceAdded(face: AugmentedFaceNode) {}
+
+   override fun onFaceUpdate(face: AugmentedFaceNode) {}
+}</code></pre>
+<p>In <code>activity_main.xm</code>l we add <code>AugmentedFaceFragment</code> as a main view and to be able to receive events from this fragment, we need to define and set <code>AugmentedFaceListener</code> to our fragment. </p>
+<p><code>onFaceAdded</code> method will be called when ARCore detects a new face and <code>onFaceUpdate</code> will be called on each frame update. </p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Define custom FaceLandmarks" duration="10">
+        <p>Let&#39;s see how we can define custom face landmarks, like eyes, mouth and lips. </p>
+<h2 is-upgraded><strong>Face Mesh Vertices</strong></h2>
+<p><a href="https://developers.google.com/ar/reference/java/arcore/reference/com/google/ar/core/AugmentedFace" target="_blank">AugmentedFace</a> describes a face detected by ARCore and has access to face mesh related data. One of those methods is <a href="https://developers.google.com/ar/reference/java/arcore/reference/com/google/ar/core/AugmentedFace#getMeshVertices()" target="_blank">getMeshVertices</a> that returns a FloatBuffer.</p>
+<p>ARCore github repository has a canonical_face_mesh.fbx face model as a reference to help creators make custom textures and 3D models. According to <a href="https://developers.google.com/ar/develop/developer-guides/creating-assets-for-augmented-faces" target="_blank">this documentation</a>, canonical_face_mesh.fbx model got 468 point face texture mesh.</p>
+<p>We can see the face mesh with numbered mesh vertices. We are going to use this image to find and define our custom face landmarks. </p>
+<p class="image-container"><img style="width: 350.29px" src="img/e29641f016019c4c.jpeg"></p>
+<aside class="special"><p><strong>Note: </strong>If you want more detailed images of the face, check out <a href="https://github.com/ManuelTS/augmentedFaceMeshIndices" target="_blank">this resource</a>.</p>
+</aside>
+<h2 is-upgraded><strong>Define EYE_LEFT landmark </strong></h2>
+<p>First, we need to define a new value in FaceLandmark enum</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>companion object {
+   enum class FaceLandmark {
+       FOREHEAD_RIGHT,
+       FOREHEAD_LEFT,
+       NOSE_TIP,
+       EYE_LEFT
+   }
+}</code></pre>
+<p>Now, we need to understand how we can calculate EYE_LEFT face landmark. Let&#39;s take vertex number 374 as a starting point.</p>
+<h3 is-upgraded><strong>Get vertex position</strong></h3>
+<p><code>getMeshVertices</code> method will return 468 * 3 values (x,y,z- coordinates for 468 points). x,y,z - coordinates for vertex number 374 can be calculated as:</p>
+<p><code>X = meshVertices.get(374 * 3)</code></p>
+<p><code>Y = meshVertices.get(374 * 3 + 1)</code></p>
+<p><code>Z = meshVertices.get(374 * 3 + 2)</code></p>
+<p>Mesh vertices are relative to the centerPose of the face and therefore we need to take centerPose into account. Calculation for EYE_LEFT landmark will look as following:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>FaceLandmark.EYE_LEFT -&gt; {
+   val centerPose = augmentedFace?.centerPose
+   val buffer = augmentedFace?.meshVertices
+   buffer?.let { vertices -&gt;
+       centerPose?.compose(Pose.makeTranslation(vertices.get(374 * 3),
+                                                vertices.get(374 * 3 + 1),
+                                                vertices.get(374 * 3 + 2)))
+   }
+}</code></pre>
+<h2 is-upgraded><strong>Define EYE_RIGHT landmark</strong></h2>
+<p>Let&#39;s quickly define EYE_RIGHT landmark next:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>companion object {
+   enum class FaceLandmark {
+       FOREHEAD_RIGHT,
+       FOREHEAD_LEFT,
+       NOSE_TIP,
+       EYE_LEFT,
+       EYE_RIGHT
+   }
+}</code></pre>
+<p>Let&#39;s refactor getRegionPose and add a new method called getLandmarkPose. After refactoring, the code should look like this:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>private fun getRegionPose(faceLandmark: FaceLandmark) : Pose? {
+   return when (faceLandmark) {
+       FaceLandmark.NOSE_TIP -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.NOSE_TIP)
+       FaceLandmark.FOREHEAD_LEFT -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.FOREHEAD_LEFT)
+       FaceLandmark.FOREHEAD_RIGHT -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.FOREHEAD_RIGHT)
+       FaceLandmark.EYE_LEFT -&gt; getLandmarkPose(374)
+       FaceLandmark.EYE_RIGHT -&gt; getLandmarkPose(145)
+   }
+}
+
+private fun getLandmarkPose(vertexIndex: Int) : Pose? {
+   val centerPose = augmentedFace?.centerPose
+   val buffer = augmentedFace?.meshVertices
+   return buffer?.let { vertices -&gt;
+       centerPose?.compose(Pose.makeTranslation(vertices.get(vertexIndex * 3),
+               vertices.get(vertexIndex * 3 + 1),
+               vertices.get(vertexIndex * 3 + 2)))
+   }
+}</code></pre>
+<h2 is-upgraded><strong>Define MUSTACHE landmark</strong></h2>
+<p>Let&#39;s quickly define MUSTACHE landmark next:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>companion object {
+   enum class FaceLandmark {
+       FOREHEAD_RIGHT,
+       FOREHEAD_LEFT,
+       NOSE_TIP,
+       EYE_LEFT,
+       EYE_RIGHT,
+       MUSTACHE
+   }
+}</code></pre>
+<p>Add MUSTACHE landmark with <code>vertexIndex</code> equals to 11:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>private fun getRegionPose(faceLandmark: FaceLandmark) : Pose? {
+   return when (faceLandmark) {
+       FaceLandmark.NOSE_TIP -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.NOSE_TIP)
+       FaceLandmark.FOREHEAD_LEFT -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.FOREHEAD_LEFT)
+       FaceLandmark.FOREHEAD_RIGHT -&gt; augmentedFace?.getRegionPose(AugmentedFace.RegionType.FOREHEAD_RIGHT)
+       FaceLandmark.EYE_LEFT -&gt; getLandmarkPose(374)
+       FaceLandmark.EYE_RIGHT -&gt; getLandmarkPose(145)
+       FaceLandmark.MUSTACHE -&gt; getLandmarkPose(11)
+   }
+}</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Preparing 3D models in Blender" duration="10">
+        <p>Currently, both ARCore samples and this project supports only .OBJ files with baked textures. In this chapter, we will learn how to make .OBJ files and how to generate the texture for our models.</p>
+<aside class="special"><p><strong>Tip:</strong> At the end of this chapter, there will be a link to download all the 3D models we will use in this course. This chapter is additional information you might need when you are going to create your own face filters. </p>
+</aside>
+<h2 is-upgraded><strong>Working in Blender</strong></h2>
+<p>Blender is the free and open source 3D creation suite. It supports the entirety of the 3D pipeline—modeling, rigging, animation, simulation, rendering, compositing and motion tracking, video editing and 2D animation pipeline.</p>
+<h3 is-upgraded><strong>Before we can start:</strong></h3>
+<ul>
+<li>Download Blender <a href="https://www.blender.org/" target="_blank">here</a></li>
+<li>Download &#34;Rabbit ears&#34; model from Poly <a href="https://poly.google.com/view/1bLq_k5vHMt" target="_blank">here</a> (Original OBJ file)</li>
+</ul>
+<h3 is-upgraded><strong>Importing OBJ files</strong></h3>
+<ul>
+<li>Open Blender</li>
+<li>File -&gt; Import -&gt; Wavefront (.obj)</li>
+<li>Select rabbitEar.obj </li>
+</ul>
+<h3 is-upgraded><strong>Scaling down/up</strong></h3>
+<p>1 unit in Blender will correspond to 1 meter in ARCore view. Let&#39;s scale down this model to fit our purpose:</p>
+<p class="image-container"><img style="width: 241.51px" src="img/490092d17b0ee10c.png"></p>
+<ul>
+<li>Set object scale to 0.070</li>
+<li>Delete <code>Cube</code> object from the scene</li>
+</ul>
+<aside class="special"><p><strong>Tip: </strong>You can import <code>canonical_face_mesh.fbx</code> from <a href="https://github.com/google-ar/arcore-android-sdk/tree/master/assets" target="_blank">ARCore repository</a> to be able to scale the model to fit the face mesh perfectly.</p>
+</aside>
+<h3 is-upgraded><strong>Bake a texture</strong></h3>
+<p>Now we will have a step by step guide on how to unwrap and generate a texture file for our object. Follow this video tutorial to learn how:</p>
+<iframe class="youtube-video" src="https://www.youtube.com/embed/8AiTfD0hgRw?rel=0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<h3 is-upgraded><strong>Save the texture and export .OBJ file</strong></h3>
+<p>As shown in the video, save a generated texture and a .OBJ file.</p>
+<h3 is-upgraded><strong>Download models</strong></h3>
+<p>In the next chapter, we will use several 3D models and textures. Please download models folder and copy all files into <code>main/assets/models</code> folder</p>
+<p><a href="https://drive.google.com/file/d/1IDjCKOkk86SeqFHRYhMpg8heu8Rhhw2n/view?usp=sharing" target="_blank"><paper-button class="colored" raised><iron-icon icon="file-download"></iron-icon>Download ZIP</paper-button></a></p>
+<aside class="special"><p><strong>Note:</strong> All 3D models were downloaded from <a href="https://poly.google.com/" target="_blank">Google Poly </a></p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Add face mask options" duration="15">
+        <h2 is-upgraded><strong>Refactoring for multiple mask support</strong></h2>
+<p>Now we want to add other face mask options and switch between them on screen tap.</p>
+<p>Let&#39;s start with creating and defining data classes in <code>arface</code> folder:</p>
+<p><code>FaceMask.kt</code></p>
+<pre><code>package blog.creativetech.arfaces.arface
+
+data class FaceMaskElement(val landmark: AugmentedFaceNode.Companion.FaceLandmark,
+                           val model: String,
+                           val texture: String)
+
+data class FaceMask(val faceTexture: String?,
+                    val landmarkMap: ArrayList&lt;FaceMaskElement&gt;?)
+</code></pre>
+<p>The next step is to refactor <code>setRegionModel</code> method as following:</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>fun setRegionModel(faceMaskElement: FaceMaskElement) {
+   val faceRegion  = FaceRegion(faceMaskElement.landmark)
+   faceRegion.setRenderable(context, faceMaskElement.model, faceMaskElement.texture)
+   faceLandmarks[faceMaskElement.landmark] = faceRegion
+}</code></pre>
+<p>In MainActivity, let&#39;s make following changes:</p>
+<ol type="1" start="1">
+<li>Define following variables:</li>
+</ol>
+<ul>
+<li><code>faceMasks</code> : store all face masks we will use in the app</li>
+<li><code>currentMaskIndex</code> : a current index of displayed mask</li>
+</ul>
+<ol type="1" start="2">
+<li>Init faceMasks array onCreate </li>
+<li>Refactor onFaceAdded to use new data classes</li>
+</ol>
+<p><code>MainActivity.kt</code></p>
+<pre><code>class MainActivity : AppCompatActivity(), AugmentedFaceListener {
+
+   private var faceMasks = ArrayList&lt;FaceMask&gt;()
+   private var currentMaskIndex : Int = 0
+
+   override fun onCreate(savedInstanceState: Bundle?) {
+       super.onCreate(savedInstanceState)
+       setContentView(R.layout.activity_main)
+       (face_view as AugmentedFaceFragment).setAugmentedFaceListener(this)
+       initMasks()
+   }
+
+   override fun onFaceAdded(face: AugmentedFaceNode) {
+       val currentMask = faceMasks[currentMaskIndex]
+
+       currentMask.faceTexture?.let {
+           face.setFaceMeshTexture(it)
+       }
+       currentMask.landmarkMap?.let { landmarks -&gt;
+           for (landmark in landmarks) {
+               face.setRegionModel(landmark)
+           }
+       }
+   }
+
+   override fun onFaceUpdate(face: AugmentedFaceNode) {}
+
+   private fun initMasks() {
+       val landmarks = ArrayList&lt;FaceMaskElement&gt;()
+       landmarks.add(FaceMaskElement(
+               AugmentedFaceNode.Companion.FaceLandmark.NOSE_TIP,
+               &#34;models/NOSE.obj&#34;,
+               &#34;models/nose_fur.png&#34;))
+       landmarks.add(FaceMaskElement(
+               AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_LEFT,
+               &#34;models/FOREHEAD_LEFT.obj&#34;,
+               &#34;models/ear_fur.png&#34;))
+       landmarks.add(FaceMaskElement(
+               AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_RIGHT,
+               &#34;models/FOREHEAD_RIGHT.obj&#34;,
+               &#34;models/ear_fur.png&#34;))
+
+       faceMasks.add(FaceMask(&#34;models/freckles.png&#34;, landmarks))
+   }
+}
+</code></pre>
+<h2 is-upgraded><strong>Add multiple masks</strong></h2>
+<h3 is-upgraded><strong>Add a second mask</strong></h3>
+<p>Now, let&#39;s add another mask using provided 3D models and face textures. Refactored initMasks method will look:</p>
+<p><code>MainActivity.kt</code></p>
+<pre><code>private fun initMasks() {
+   val foxLandmarks = ArrayList&lt;FaceMaskElement&gt;()
+   foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.NOSE_TIP,
+                         &#34;models/NOSE.obj&#34;,
+                         &#34;models/nose_fur.png&#34;))
+   foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_LEFT,
+                         &#34;models/FOREHEAD_LEFT.obj&#34;,
+                         &#34;models/ear_fur.png&#34;))
+   foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_RIGHT,
+                         &#34;models/FOREHEAD_RIGHT.obj&#34;,
+                         &#34;models/ear_fur.png&#34;))
+
+   faceMasks.add(FaceMask(&#34;models/freckles.png&#34;, foxLandmarks))
+
+   val landmarks = ArrayList&lt;FaceMaskElement&gt;()
+   landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.MUSTACHE,
+                      &#34;models/mustache.obj&#34;,
+                      &#34;models/mustache.png&#34;))
+   landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.EYE_LEFT,
+                      &#34;models/heart.obj&#34;,
+                      &#34;models/heart.png&#34;))
+   landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.EYE_RIGHT,
+                      &#34;models/heart.obj&#34;,
+                      &#34;models/heart.png&#34;))
+
+   faceMasks.add(FaceMask(&#34;models/face_scars.png&#34;, landmarks))
+}</code></pre>
+<h3 is-upgraded>Add <code>Change Filter</code><strong> button</strong></h3>
+<p>We will have an <code>ImageButton</code> in <code>activity_main</code> to be able change between face filters. Let&#39;s add it to the layout: </p>
+<p><code>activity_main.xml</code></p>
+<pre><code>&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;
+&lt;androidx.constraintlayout.widget.ConstraintLayout xmlns:android=&#34;http://schemas.android.com/apk/res/android&#34;
+   xmlns:app=&#34;http://schemas.android.com/apk/res-auto&#34;
+   xmlns:tools=&#34;http://schemas.android.com/tools&#34;
+   android:layout_width=&#34;match_parent&#34;
+   android:layout_height=&#34;match_parent&#34;
+   tools:context=&#34;.MainActivity&#34;&gt;
+
+   &lt;fragment android:name=&#34;blog.creativetech.arfaces.arface.AugmentedFaceFragment&#34;
+       android:id=&#34;@+id/face_view&#34;
+       android:layout_width=&#34;match_parent&#34;
+       android:layout_height=&#34;match_parent&#34;
+       android:layout_gravity=&#34;top&#34; /&gt;
+
+   &lt;ImageButton
+       android:id=&#34;@+id/change_button&#34;
+       android:layout_width=&#34;wrap_content&#34;
+       android:layout_height=&#34;wrap_content&#34;
+       app:layout_constraintLeft_toLeftOf=&#34;parent&#34;
+       app:layout_constraintRight_toRightOf=&#34;parent&#34;
+       app:layout_constraintBottom_toBottomOf=&#34;parent&#34;
+       app:srcCompat=&#34;@android:drawable/ic_popup_sync&#34;
+       android:layout_marginBottom=&#34;24dp&#34;
+       android:background=&#34;@null&#34;/&gt;
+
+&lt;/androidx.constraintlayout.widget.ConstraintLayout&gt;</code></pre>
+<p>In <code>MainActivity</code> we need to handle <code>onClickEvent</code> from the button and change to the next filter.</p>
+<h3 is-upgraded><strong>Change filter on button click</strong></h3>
+<p>In the code below we made a few changes to be able to change the filter by clicking a button:</p>
+<ul>
+<li>Added <code>updateMask</code> variable to indicate if we should change to the next filter</li>
+<li>Set a click listener for <code>change_button</code> to handle the change</li>
+<li>Refactor <code>onFaceAdded</code> and move the code to a separate method that will be called from <code>onFaceAdded</code> and <code>onFaceUpdate</code></li>
+<li>If <code>updateMask</code> is true, change to the next filter on next <code>onFaceUpdate</code> call</li>
+</ul>
+<p><code>MainActivity.kt</code></p>
+<pre><code>class MainActivity : AppCompatActivity(), AugmentedFaceListener {
+
+   private var faceMasks = ArrayList&lt;FaceMask&gt;()
+   private var currentMaskIndex : Int = 0
+   private var updateMask : Boolean = false
+
+   override fun onCreate(savedInstanceState: Bundle?) {
+       super.onCreate(savedInstanceState)
+       setContentView(R.layout.activity_main)
+       (face_view as AugmentedFaceFragment).setAugmentedFaceListener(this)
+       initMasks()
+       change_button.setOnClickListener { nextMask() }
+   }
+
+   override fun onFaceAdded(face: AugmentedFaceNode) {
+       changeMask(face)
+   }
+
+   override fun onFaceUpdate(face: AugmentedFaceNode) {
+       if (updateMask) {
+           changeMask(face)
+           updateMask = false
+       }
+   }
+
+   private fun initMasks() {
+       val foxLandmarks = ArrayList&lt;FaceMaskElement&gt;()
+       foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.NOSE_TIP,
+                         &#34;models/NOSE.obj&#34;,
+                         &#34;models/nose_fur.png&#34;))
+       foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_LEFT,
+                         &#34;models/FOREHEAD_LEFT.obj&#34;,
+                         &#34;models/ear_fur.png&#34;))
+       foxLandmarks.add(FaceMaskElement(
+                         AugmentedFaceNode.Companion.FaceLandmark.FOREHEAD_RIGHT,
+                         &#34;models/FOREHEAD_RIGHT.obj&#34;,
+                         &#34;models/ear_fur.png&#34;))
+
+       faceMasks.add(FaceMask(&#34;models/freckles.png&#34;, foxLandmarks))
+
+       val landmarks = ArrayList&lt;FaceMaskElement&gt;()
+       landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.MUSTACHE,
+                      &#34;models/mustache.obj&#34;,
+                      &#34;models/mustache.png&#34;))
+       landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.EYE_LEFT,
+                      &#34;models/heart.obj&#34;,
+                      &#34;models/heart.png&#34;))
+       landmarks.add(FaceMaskElement(
+                      AugmentedFaceNode.Companion.FaceLandmark.EYE_RIGHT,
+                      &#34;models/heart.obj&#34;,
+                      &#34;models/heart.png&#34;))
+
+       faceMasks.add(FaceMask(&#34;models/face_scars.png&#34;, landmarks))
+   }
+
+   private fun nextMask() {
+       currentMaskIndex ++
+       if (currentMaskIndex == faceMasks.size) {
+           currentMaskIndex = 0
+       }
+       updateMask = true
+   }
+
+   private fun changeMask(face: AugmentedFaceNode) {
+       val currentMask = faceMasks[currentMaskIndex]
+
+       currentMask.faceTexture?.let {
+           face.setFaceMeshTexture(it)
+       }
+
+       face.clearLandmarks()
+       currentMask.landmarkMap?.let { landmarks -&gt;
+           for (landmark in landmarks) {
+               face.setRegionModel(landmark)
+           }
+       }
+   }
+}</code></pre>
+<p>As a final step, add <code>clearLandmarks</code> method</p>
+<p><code>AugmentedFaceNode.kt</code></p>
+<pre><code>fun clearLandmarks() {
+   faceLandmarks.clear()
+}</code></pre>
+<p>Now we can run the app and see the result.</p>
+<p class="image-container"><img style="width: 473.69px" src="img/4a20d1ee28ce7162.gif"></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Background tint with Shaders" duration="10">
+        <p>In this chapter, you will learn how to manipulate a fragment shader to apply tint to a face filter.</p>
+<h2 is-upgraded><strong>Shaders</strong></h2>
+<p>In computer graphics, a shader is a type of computer program originally used for shading in 3D scenes [Wikipedia]. For this tutorial, we use fragment and vertex shader. All shaders that are included in this project can be found under <code>app -&gt; src -&gt; assets -&gt; shaders</code></p>
+<h3 is-upgraded><strong>Fragment Shader</strong></h3>
+<p>Pixel shaders, also known as fragment shaders, compute <a href="https://en.wikipedia.org/wiki/Color" target="_blank">color</a> and other attributes of each &#34;fragment&#34;: a unit of rendering work affecting at most a single output pixel [Wikipedia]. </p>
+<h3 is-upgraded>Vertex Shader</h3>
+<p>Vertex shaders are the most established and common kind of 3D shader and are run once for each vertex given to the graphics processor. The purpose is to transform each vertex&#39;s 3D position in virtual space to the 2D coordinate at which it appears on the screen (as well as a depth value for the Z-buffer). Vertex shaders can manipulate properties such as position, color and texture coordinates, but cannot create new vertices [Wikipedia]. </p>
+<h2 is-upgraded><strong>Tint Background</strong></h2>
+<h3 is-upgraded><strong>Add tint toggle button</strong></h3>
+<p>Let&#39;s modify <code>activity_main</code> and include <code>ImageButton</code> in right bottom corner of the screen:</p>
+<p><code>activity_main.xml</code></p>
+<pre><code>&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;
+&lt;androidx.constraintlayout.widget.ConstraintLayout xmlns:android=&#34;http://schemas.android.com/apk/res/android&#34;
+   xmlns:app=&#34;http://schemas.android.com/apk/res-auto&#34;
+   xmlns:tools=&#34;http://schemas.android.com/tools&#34;
+   android:layout_width=&#34;match_parent&#34;
+   android:layout_height=&#34;match_parent&#34;
+   tools:context=&#34;.MainActivity&#34;&gt;
+
+   &lt;fragment android:name=&#34;blog.creativetech.arfaces.arface.AugmentedFaceFragment&#34;
+       android:id=&#34;@+id/face_view&#34;
+       android:layout_width=&#34;match_parent&#34;
+       android:layout_height=&#34;match_parent&#34;
+       android:layout_gravity=&#34;top&#34; /&gt;
+
+   &lt;ImageButton
+       android:id=&#34;@+id/change_button&#34;
+       android:layout_width=&#34;wrap_content&#34;
+       android:layout_height=&#34;wrap_content&#34;
+       app:layout_constraintLeft_toLeftOf=&#34;parent&#34;
+       app:layout_constraintRight_toRightOf=&#34;parent&#34;
+       app:layout_constraintBottom_toBottomOf=&#34;parent&#34;
+       app:srcCompat=&#34;@android:drawable/ic_popup_sync&#34;
+       android:layout_marginBottom=&#34;24dp&#34;
+       android:background=&#34;@null&#34;/&gt;
+
+   &lt;ImageButton
+       android:id=&#34;@+id/tint_button&#34;
+       android:layout_width=&#34;wrap_content&#34;
+       android:layout_height=&#34;wrap_content&#34;
+       app:layout_constraintRight_toRightOf=&#34;parent&#34;
+       app:layout_constraintBottom_toBottomOf=&#34;parent&#34;
+       app:srcCompat=&#34;@android:drawable/ic_menu_view&#34;
+       android:layout_marginBottom=&#34;24dp&#34;
+       android:layout_marginRight=&#34;24dp&#34;
+       android:background=&#34;@null&#34;/&gt;
+
+&lt;/androidx.constraintlayout.widget.ConstraintLayout&gt;</code></pre>
+<p>Next step is to add a click listener to <code>tint_button</code> and trigger <code>toggleTint</code> event</p>
+<p><code>MainActivity.kt</code></p>
+<pre><code>override fun onCreate(savedInstanceState: Bundle?) {
+   super.onCreate(savedInstanceState)
+   setContentView(R.layout.activity_main)
+   (face_view as AugmentedFaceFragment).setAugmentedFaceListener(this)
+   initMasks()
+   change_button.setOnClickListener { nextMask() }
+   tint_button.setOnClickListener {
+       (face_view as AugmentedFaceFragment).toggleTint()
+   }
+}</code></pre>
+<h3 is-upgraded><strong>Modify BackgroundRenderer</strong></h3>
+<p>First, let&#39;s add <code>toogleTint</code> method in <code>AugmentedFaceFragment</code>:</p>
+<p><code>AugmentedFaceFragment.kt</code></p>
+<pre><code>public fun toggleTint() {
+   backgroundRenderer.toggleTint()
+}</code></pre>
+<p>Now going forward with our project, we need to define new variables in BackgroundRenderer:</p>
+<ul>
+<li><code>tintUniform</code> - uniforms variables in GLSL are crucial for passing data between the app code on the CPU and the shader program on the graphics card. We define tintUniform to pass tint color data</li>
+<li><code>tintColor</code> - define a float array and define a default tint color which represents the RGBA format</li>
+<li><code>tintEnabled</code> - boolean flag to switch between tint color values</li>
+</ul>
+<p>Let&#39;s add those variables to the code:</p>
+<p><code>BackgroundRenderer.java</code></p>
+<pre><code>private int tintUniform;
+private float[] tintColor = new float[] {1f, 1f, 1f, 1f};
+private boolean tintEnabled = false;</code></pre>
+<p>Add <code>toogleTint</code> method below <code>createOnGlThread</code> method (approx. line 155)</p>
+<p><code>BackgroundRenderer.java</code></p>
+<pre><code>public void toggleTint() {
+   tintEnabled = !tintEnabled;
+   if (tintEnabled) {
+       tintColor = new float[] {1.0f, 0.8f, 0.9f, 1f};
+   } else {
+       tintColor = new float[] {1f, 1f, 1f, 1f};
+   }
+}</code></pre>
+<p>Now everytime <code>toogleTint</code> is called the tintColor variable will be changed. For this tutorial, we can define pink tint with values <code>{1.0f, 0.8f, 0.9f, 1f}</code></p>
+<h3 is-upgraded><strong>Tint with fragment shader</strong></h3>
+<p>Now we need to connect <code>tintColor</code> with <code>tintUniform</code> variable and apply tint to the background texture. </p>
+<p>Let&#39;s modify <code>createOnGlThread</code> (approx line 82) method and associate <code>tintUniform</code> variable with <code>u_TintColor</code> (variable that we will define in our fragment shader).</p>
+<p>Add <code>tintUniform = GLES20.</code><em><code>glGetUniformLocation</code></em><code>(cameraProgram, &#34;u_TintColor&#34;)</code> line below cameraTextureUniform assigment in <code>createOnGlThread</code> method (approx. line 128)</p>
+<p><code>BackgroundRenderer.java</code></p>
+<pre><code>...
+cameraTextureUniform = GLES20.glGetUniformLocation(cameraProgram, &#34;sTexture&#34;);
+tintUniform = GLES20.glGetUniformLocation(cameraProgram, &#34;u_TintColor&#34;);
+ShaderUtil.checkGLError(TAG, &#34;Program parameters&#34;);
+...</code></pre>
+<p>Next step is to pass tintColor param on every <code>draw</code> call. Modify <code>draw</code> method and add <code>GLES20.</code><em><code>glUniform4fv</code></em><code>(tintUniform, 1, tintColor, 0)</code> line in approximately line 289:</p>
+<p><code>BackgroundRenderer.java</code></p>
+<pre><code>...
+GLES20.glUniform1i(cameraTextureUniform, 0);
+GLES20.glUniform4fv(tintUniform, 1, tintColor, 0);
+...</code></pre>
+<p>After we set tintColor in BackgroundRenderer, let&#39;s apply this value to the final calculation of the color as following:</p>
+<p><code>screenquad.frag</code></p>
+<pre><code>precision mediump float;
+varying vec2 v_TexCoord;
+uniform samplerExternalOES sTexture;
+uniform vec4 u_TintColor;
+
+void main() {
+   gl_FragColor = texture2D(sTexture, v_TexCoord) * u_TintColor;
+}</code></pre>
+<p>Run the app and see the final result:</p>
+<p class="image-container"><img style="width: 385.76px" src="img/36023b79e25e94ce.gif"></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Congratulations" duration="0">
+        <p>Congratulations, you&#39;ve successfully built your ARCore Photo booth app! </p>
+<p>You have created an Android app based on ARCore SDK and Kotlin. You have learned how to apply textures and 3D models to a recognised face. You have also got a short introduction into GLSL shaders and Blender modelling. </p>
+<p>You now know the key steps required to work with AugmentedFaces API from ARCore and can build face filter applications in Kotlin and ARCore.</p>
+<h2 is-upgraded><strong>Reference docs</strong></h2>
+<ul>
+<li><a href="https://github.com/google-ar/arcore-android-sdk" target="_blank">ARCore SDK github repository</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Shader" target="_blank">Wikipedia: Shader</a></li>
+<li><a href="https://developers.google.com/ar/develop/java/augmented-faces" target="_blank">Augmented Faces API</a></li>
+</ul>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/codelab-elements/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/prettify.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
